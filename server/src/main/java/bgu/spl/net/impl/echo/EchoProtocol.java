@@ -5,8 +5,6 @@ import java.time.LocalDateTime;
 
 public class EchoProtocol implements MessagingProtocol<String> {
 
-    private boolean shouldTerminate = false;
-
     @Override
     public String process(String msg) {
         shouldTerminate = "bye".equals(msg);
