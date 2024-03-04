@@ -56,5 +56,9 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     @Override
     public void send(T msg) {
         //IMPLEMENT IF NEEDED
+        try (Socket sock = this.sock) {
+            out = new BufferedOutputStream(sock.getOutputStream());
+            out.write(encdec.encode(msg));
+        }
     }
 }
