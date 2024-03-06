@@ -1,5 +1,7 @@
 package bgu.spl.net.impl.tftp;
 
+import java.util.Arrays;
+
 import bgu.spl.net.api.MessageEncoderDecoder;
 
 public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
@@ -35,6 +37,6 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     @Override
     public byte[] encode(byte[] message) {
         //TODO: implement this
-        return null;
+        return message;
     }
 }

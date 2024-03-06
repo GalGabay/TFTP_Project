@@ -1,15 +1,27 @@
-public class TftpConnections <T> implements Connections <T> {
-    static ConcurrentHashMap<Integer,ConnectionHandler<T>> logginId = new ConcurrentHashMap<>();
+package bgu.spl.net.impl.tftp;
 
-    boolean connect(int connectionId, ConnectionHandler<T> handler){
-        return logginId.put(connectionId,handler) != null;
+import java.util.concurrent.ConcurrentHashMap;
+import bgu.spl.net.srv.BlockingConnectionHandler;
+import bgu.spl.net.srv.ConnectionHandler;
+import bgu.spl.net.srv.Connections;
+
+
+
+public class TftpConnections<T> implements Connections<T> {
+    ConcurrentHashMap<Integer,BlockingConnectionHandler<T>> logginId = new ConcurrentHashMap<>();
+
+    // changed to void
+    public boolean connect(int connectionId, ConnectionHandler<T> handler){
+        return logginId.put(connectionId,(BlockingConnectionHandler<T>)handler) != null;
     }
 
-    boolean send(int connectionId, T msg){
-        return logginId.get(connectionId).send(msg) != null;
+    // changed to void
+    public void send(int connectionId, T msg){
+        logginId.get(connectionId).send(msg);
     }
 
-    boolean disconnect(int connectionId){
+    // changed to void
+    public boolean disconnect(int connectionId){
         return logginId.remove(connectionId) != null;
     }
 }
