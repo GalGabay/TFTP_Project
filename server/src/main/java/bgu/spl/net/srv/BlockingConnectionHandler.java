@@ -22,6 +22,10 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
         this.encdec = reader;
         this.protocol = protocol;
     }
+    
+    public BidiMessagingProtocol<T> getProtocol() {
+        return protocol;
+    }
 
     @Override
     public void run() {
@@ -30,10 +34,15 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
 
             in = new BufferedInputStream(sock.getInputStream());
             out = new BufferedOutputStream(sock.getOutputStream());
-
+            int counter = 0;
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
                 T nextMessage = encdec.decodeNextByte((byte) read);
+                System.out.println("entered " + counter);
+                counter++;
                 if (nextMessage != null) {
+                    byte[] message = (byte[])nextMessage;
+                    String fileName = new String(message,0,message.length);
+                    System.out.println("entered protocol and message is: " + fileName);
                     protocol.process(nextMessage);
                     // if (response != null) {
                     //     out.write(encdec.encode(response));
