@@ -50,6 +50,7 @@ public abstract class BaseServer<T> implements Server<T> {
                         protocolFactory.get());
 
                 execute(handler);
+                System.out.println("Client connected");
                 connectionIds++;
                 connections.connect(connectionIds, handler);
                 handler.getProtocol().start(connectionIds, connections);

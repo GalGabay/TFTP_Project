@@ -36,11 +36,15 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             out = new BufferedOutputStream(sock.getOutputStream());
             int counter = 0;
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
+                System.out.println("read is: " + read);
                 T nextMessage = encdec.decodeNextByte((byte) read);
                 System.out.println("entered " + counter);
                 counter++;
                 if (nextMessage != null) {
                     byte[] message = (byte[])nextMessage;
+                    // for(int i = 0; i < message.length; i++) {
+                    //     System.out.println("message[" + i + "] is: " + message[i]);
+                    // }
                     String fileName = new String(message,0,message.length);
                     System.out.println("entered protocol and message is: " + fileName);
                     protocol.process(nextMessage);
@@ -66,11 +70,20 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     @Override
     public void send(T msg) {
         //IMPLEMENT IF NEEDED
-        try (Socket sock = this.sock) {
-            out = new BufferedOutputStream(sock.getOutputStream());
-            out.write(encdec.encode(msg));
-        } catch (IOException ex) {
-            ex.printStackTrace();
+        // try (Socket sock = this.sock) {
+        //     out = new BufferedOutputStream(sock.getOutputStream());
+        if(msg!=null){
+            try {
+                out.write(encdec.encode(msg));
+                out.flush(); 
+            } catch(IOException e) {
+                e.printStackTrace();
+            }
+            
         }
+         
+        // } catch (IOException ex) {
+        //     ex.printStackTrace();
+        // }
     }
 }

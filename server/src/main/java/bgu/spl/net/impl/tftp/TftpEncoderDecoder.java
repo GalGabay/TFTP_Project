@@ -8,7 +8,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     //TODO: Implement here the TFTP encoder and decoder
     private byte[] bytes = new byte[1 << 10]; //start with 1k
     private int len = 0;
-    private int sizeArr =0;
+    private int sizeArr = 0;
 
     @Override
     public byte[] decodeNextByte(byte nextByte) {
@@ -19,10 +19,25 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         if(sizeArr > 1) {
             if ((bytes[1] == 6) || (bytes[1] == 10)){ // DIRQ or DISC
                 //pushByte(nextByte);
-                return bytes;
+                byte[] output = new byte[sizeArr];
+                for(int i = 0; i < sizeArr; i++) {
+                    output[i] = bytes[i];
+                }
+                sizeArr = 0;
+                len = 0;
+                bytes = new byte[1 << 10];
+                return output;
             } else if (bytes[1] == 4){ // ACK
-                //
-                //
+                if(sizeArr == 4) {
+                    byte[] output = new byte[sizeArr];
+                    for(int i = 0; i < sizeArr; i++) {
+                        output[i] = bytes[i];
+                    }
+                    len = 0;
+                    sizeArr = 0;
+                    bytes = new byte[1 << 10];
+                    return output;
+                }
                 return bytes;
             } else if(bytes[1] == 3){ // DATA
                 int packetSize = 0;
@@ -31,12 +46,26 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
                 }
                 if(sizeArr > 4) {
                     if(sizeArr > packetSize+2) {
-                        return bytes;
+                        byte[] output = new byte[sizeArr];
+                        for(int i = 0; i < sizeArr; i++) {
+                            output[i] = bytes[i];
+                        }
+                        len = 0;
+                        sizeArr = 0;
+                        bytes = new byte[1 << 10];
+                        return output;
                     }
                 }
             } 
             else if(nextByte == 0) {
-                return bytes;
+                byte[] output = new byte[sizeArr];
+                for(int i = 0; i < sizeArr; i++) {
+                    output[i] = bytes[i];
+                }
+                len = 0;
+                sizeArr = 0;
+                bytes = new byte[1 << 10];
+                return output;
             }
         }    
         return null;
@@ -46,7 +75,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         if (len >= bytes.length) {
             bytes = Arrays.copyOf(bytes, len * 2);
         }
-
+ 
         bytes[len++] = nextByte;
     }
 
