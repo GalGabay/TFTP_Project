@@ -1,6 +1,7 @@
 package bgu.spl.net.impl.tftp;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,10 +21,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     private boolean shouldTerminate = false;
     private int connectionId;
     private Connections<byte[]> connections; // string or byte[]?
-    private static final String FILES_DIRECTORY = "./server/Flies";
+    private static final String FILES_DIRECTORY = "./Flies";
 
     private byte[] data;
     private int blockNumberToInt = 0;
+    private File wrqFile;
     
 
 
@@ -33,6 +35,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         this.connectionId = connectionId;
         this.connections = connections;
         holder.logginId.put(connectionId, false); // not sure
+        data = null;
         // throw new UnsupportedOperationException("Unimplemented method 'start'");
     }
 
@@ -52,61 +55,46 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     }
 
     public void handleData(byte[] data, byte[] blockNumber) {
-        if(blockNumber[1] == 127) { 
-            blockNumber[0]++;
-            blockNumber[1] = 0;
-        } else {
-            blockNumber[1]++;
+        if(data!=null) {
+
+            
+            if(blockNumber[1] == 127) { 
+                blockNumber[0]++;
+                blockNumber[1] = 0;
+            } else {
+                blockNumber[1]++;
+            }
+            int i = blockNumberToInt*512;
+            blockNumberToInt++;
+            System.out.println("data length1 is: " + data.length);
+            byte[] packetToSend = new byte[Math.min(data.length-i+6,518)]; // 512 size of data + 7 more places
+            packetToSend[0] = 0;
+            packetToSend[1] = 3;
+            packetToSend[2] = (byte) ((packetToSend.length-6 >> 8) & 0xFF);
+            packetToSend[3] = (byte) (packetToSend.length-6 & 0xFF);     
+            packetToSend[4] = blockNumber[0];
+            packetToSend[5] = blockNumber[1];
+            System.arraycopy(data, i, packetToSend, 6, packetToSend.length-6);
+            for(int j = 0; j < packetToSend.length; j++) {
+                System.out.print(packetToSend[j] + " ");
+            }
+            //packetToSend[packetToSend.length-1] = 0;
+            connections.send(connectionId,packetToSend);
+            System.out.println("send data to client");
+            if(packetToSend.length != 518 || i == data.length-512) {
+                blockNumberToInt = 0;
+                this.data = null;
+            } 
+            
         }
-        int i = blockNumberToInt*512;
-        blockNumberToInt++;
-        byte[] packetToSend = new byte[Math.min(data.length-i,512)];
-        packetToSend[0] = 0;
-        packetToSend[1] = 3;
-        packetToSend[2] = (byte) ((data.length >> 8) & 0xFF);
-        packetToSend[3] = (byte) (data.length & 0xFF);     
-        packetToSend[4] = blockNumber[0];
-        packetToSend[5] = blockNumber[1];
-        System.arraycopy(data, i, packetToSend, 6, packetToSend.length-6);
-        connections.send(connectionId,packetToSend);
-        System.out.println("send data to client");
-        if(packetToSend.length != 512 || i == data.length-512) {
-            blockNumberToInt = 0;
-            data = null;
-        } 
-        
-        
-        //     // Read file data in chunks
-        //         byte[] data = new byte[512];
-        //         int bytesRead;
-        //         if ((bytesRead = fileToRead.read(data)) != -1) {
-        //             // Send the data
-        //             byte[] packetToSend = new byte[bytesRead + 6];
-        //             packetToSend[0] = 0;
-        //             packetToSend[1] = 3;
-        //             packetToSend[2] = (byte) ((bytesRead >> 8) & 0xFF);
-        //             packetToSend[3] = (byte) (bytesRead & 0xFF);     
-        //             packetToSend[4] = blockNumber[0];
-        //             packetToSend[5] = blockNumber[1];
-        //             System.arraycopy(data, 0, packetToSend, 6, bytesRead);
-        //             connections.send(connectionId,packetToSend);
-                    
-        //             data = new byte[512];
-        //         }
-                
-
-        //     }
-        // catch (IOException e) {
-        // }
-
     }
 
     @Override
     public void process(byte[] message) {
         // TODO implement this
-        for(int i = 0; i < message.length; i++) {
-            System.out.print("message[" + i + "] is: " + message[i] + " ");
-        }
+        // for(int i = 0; i < message.length; i++) {
+        //     System.out.print("message[" + i + "] is: " + message[i] + " ");
+        // }
         byte opByte = message[1];
         byte[] ack = {0,4,0,0};
         if(holder.logginId.get(connectionId) == false && opByte != 7){
@@ -119,7 +107,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             // call func to handle data
             handleData(data, blockNumber);
         }
-        else if (opByte == 1){ // RRQ
+        else if (opByte == 1){ // RRQ WORKS
             System.out.println("Entered To RRQ!");
             String fileName = new String(message,2,message.length-3); // maybe length is 3
             Path path = Paths.get(FILES_DIRECTORY + "/" + fileName); 
@@ -175,39 +163,73 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             }
             
         } 
-        else if (opByte == 2){ //WRQ 
+        else if (opByte == 2){ //WRQ WORKS
             String fileName = new String(message,2,message.length-3); // maybe length is 3
             Path folder = Paths.get(FILES_DIRECTORY);
-            Path filePath = folder.resolve(fileName);
-            if (!Files.exists(filePath)) {
+            Path filePath = folder.resolve(fileName);          
+            if (Files.exists(filePath)) {
                 byte[] error = {0,5,0,5,0};
                 connections.send(connectionId,error);
             } else {
                 try {
                     Files.createFile(filePath);
+                    this.wrqFile = filePath.toFile();
                     connections.send(connectionId,ack);
-                    bCastPacket((byte)1, Arrays.copyOfRange(message, 2, message.length-2));
+                    //bCastPacket((byte)1, Arrays.copyOfRange(message, 2, message.length-1));
                 } catch (IOException e) {} 
                 
             }
 
-        } else if (opByte == 6){ // DIRQ 
+        } else if(opByte == 3) { // DATA WORKS
+            int packetSize = (message[2] << 8) | (message[3] & 0xFF);   
+            try (FileOutputStream fileToCreate = new FileOutputStream(wrqFile, true)) {
+                fileToCreate.write(Arrays.copyOfRange(message, 6, message.length));
+        } catch (IOException e) {
+            e.printStackTrace();}
+            byte[] ackData = {0,4,message[4],message[5]};
+            connections.send(connectionId,ackData);
+            if(packetSize < 512) {
+                bCastPacket((byte)1, wrqFile.getName().getBytes());
+                this.wrqFile = null;
+            }
+        }
+        else if (opByte == 6){ // DIRQ WORKS
             File dir = new File(FILES_DIRECTORY);
             File[] filesList = dir.listFiles();
             String fileNames = "";
+            int filesCounter = 0;
             for (File file : filesList) {
                 if (file.isFile()) {
+                    filesCounter++;
+                    //int length = file.getName().getBytes().length;
                     fileNames += file.getName();
-                    fileNames += '0';
+                    // fileNames += 0;
+                   // data = file.getName().getBytes();
+                   //
+                    //System.arraycopy(file.getName().getBytes(), 0, data, 0, file.getName().getBytes().length);
                 }
             }
-            data = fileNames.getBytes();
+            byte[] fileNamesToBytes = fileNames.getBytes();
+            data = new byte[fileNamesToBytes.length + filesCounter-1];
+            int filesLength = 0;
+            for (File file : filesList) {
+                if (file.isFile()) {
+                    filesCounter--;
+                    System.arraycopy(file.getName().getBytes(), 0, data, filesLength, file.getName().getBytes().length);
+                    filesLength += file.getName().getBytes().length + 1;
+                    if(filesCounter != 0) {
+                        data[filesLength-1] = 0;
+                    }       
+                    
+                }
+            }
+            
             byte[] blockNumber = {0,0};
             handleData(data, blockNumber);
             
 
             
-        }else if (opByte == 7){ // LOGRQ
+        }else if (opByte == 7){ // LOGRQ WORKS
             if (holder.usernames.contains(connectionId)){ // need to change?
                 byte[] error = {0,5,0,7,0};
                 connections.send(connectionId,error);
@@ -217,14 +239,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 connections.send(connectionId, ack);
                 System.out.println("send ack to client after LOGRQ");
             }
-        }else if (opByte == 8){ // DELRQ
-            String fileName = new String(message,2,message.length-2); // maybe length is 3
+        }else if (opByte == 8){ // DELRQ WORKS
+            String fileName = new String(message,2,message.length-3); // maybe length is 3
             Path path = Paths.get(FILES_DIRECTORY + "/" + fileName); // "./././././././Flies/gal.txt"
             if (Files.exists(path)){
                 File file = path.toFile();
                 file.delete();
                 connections.send(connectionId,ack);
-                bCastPacket((byte)0, Arrays.copyOfRange(message, 2, message.length-2));
+                bCastPacket((byte)0, Arrays.copyOfRange(message, 2, message.length-1));
             } else {
                 byte[] error = {0,5,0,1,0};
                 connections.send(connectionId,error);
