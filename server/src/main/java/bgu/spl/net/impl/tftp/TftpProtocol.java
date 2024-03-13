@@ -36,7 +36,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         this.connections = connections;
         holder.logginId.put(connectionId, false); // not sure
         data = null;
-        // throw new UnsupportedOperationException("Unimplemented method 'start'");
     }
 
     public void bCastPacket(byte deleteOrAdded, byte[] fileName) {
@@ -61,15 +60,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             blockNumberCast++;
             blockNumber[0] = (byte)((blockNumberCast >> 8) & 0xFF);
             blockNumber[1] = (byte)(blockNumberCast & 0xFF);
-            System.out.println("blockNumber[0]: " + blockNumber[0] + " blockNumber[1]: " + blockNumber[1]);
-    
-            // if(blockNumber[1] == 127) { 
-            //     blockNumber[0]++;
-            //     blockNumber[1] = 0;
-            // }
             int i = blockNumberToInt*512;
             blockNumberToInt++;
-            System.out.println("data length1 is: " + data.length);
             byte[] packetToSend = new byte[Math.min(data.length-i+6,518)]; // 512 size of data + 7 more places
             packetToSend[0] = 0;
             packetToSend[1] = 3;
@@ -78,12 +70,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             packetToSend[4] = blockNumber[0];
             packetToSend[5] = blockNumber[1];
             System.arraycopy(data, i, packetToSend, 6, packetToSend.length-6);
-            for(int j = 0; j < packetToSend.length; j++) {
-                System.out.print(packetToSend[j] + " ");
-            }
-            //packetToSend[packetToSend.length-1] = 0;
             connections.send(connectionId,packetToSend);
-            System.out.println("send data to client");
             if(packetToSend.length != 518 || i == data.length-512) {
                 blockNumberToInt = 0;
                 this.data = null;
@@ -95,9 +82,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     @Override
     public void process(byte[] message) {
         // TODO implement this
-        // for(int i = 0; i < message.length; i++) {
-        //     System.out.print("message[" + i + "] is: " + message[i] + " ");
-        // }
         byte opByte = message[1];
         byte[] ack = {0,4,0,0};
         if(holder.logginId.get(connectionId) == false && opByte != 7){
@@ -111,11 +95,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             handleData(data, blockNumber);
         }
         else if (opByte == 1){ // RRQ WORKS
-            System.out.println("Entered To RRQ!");
+
             String fileName = new String(message,2,message.length-3); // maybe length is 3
             Path path = Paths.get(FILES_DIRECTORY + "/" + fileName); 
-            System.out.println("Current Working Directory: " + Paths.get("").toAbsolutePath());
-            System.out.println("path is: " + path);
+
             if (Files.exists(path)){
                 File file = path.toFile();
                 connections.send(connectionId,ack);
@@ -127,38 +110,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                     byte[] blockNumber = {0,0};
                     handleData(data,blockNumber);
                     } catch (IOException e) {}
-                
-                //byte[] block = {0,3,0,1};
-                //connections.send(connectionId,block);
-                // try (FileInputStream fileToRead = new FileInputStream(file)) {
-                //     // Read file data in chunks
-
-                //         byte[] data = new byte[512];
-                //         int bytesRead;
-                //         while ((bytesRead = fileToRead.read(data)) != -1) {
-                //             // Send the data
-                //             byte[] packetToSend = new byte[bytesRead + 6];
-                //             packetToSend[0] = 0;
-                //             packetToSend[1] = 3;
-                //             packetToSend[2] = (byte) ((bytesRead >> 8) & 0xFF);
-                //             packetToSend[3] = (byte) (bytesRead & 0xFF);     
-                //             packetToSend[4] = blockNumber[0];
-                //             packetToSend[5] = blockNumber[1];
-                //             System.arraycopy(data, 0, packetToSend, 6, bytesRead);
-                //             connections.send(connectionId,packetToSend);
-                //             if(blockNumber[1] == 127) { 
-                //                 blockNumber[0]++;
-                //                 blockNumber[1] = 0;
-                //             } else {
-                //                 blockNumber[1]++;
-                //             }
-                //             data = new byte[512];
-                //         }
-                        
-
-                //     }
-                // catch (IOException e) {
-                // }
             } else { // need to get it back
                 byte[] error = {0,5,0,1,0};
                 connections.send(connectionId,error);
@@ -177,7 +128,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                     Files.createFile(filePath);
                     this.wrqFile = filePath.toFile();
                     connections.send(connectionId,ack);
-                    //bCastPacket((byte)1, Arrays.copyOfRange(message, 2, message.length-1));
                 } catch (IOException e) {} 
                 
             }
@@ -190,7 +140,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
         } catch (IOException e) {
             e.printStackTrace();}
             
-           // System.out.println("ack: " + message[4] + " " + message[5]);
             connections.send(connectionId,ackData);
             if(packetSize < 512) {
                 bCastPacket((byte)1, wrqFile.getName().getBytes());
@@ -205,12 +154,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             for (File file : filesList) {
                 if (file.isFile()) {
                     filesCounter++;
-                    //int length = file.getName().getBytes().length;
                     fileNames += file.getName();
-                    // fileNames += 0;
-                   // data = file.getName().getBytes();
-                   //
-                    //System.arraycopy(file.getName().getBytes(), 0, data, 0, file.getName().getBytes().length);
                 }
             }
             byte[] fileNamesToBytes = fileNames.getBytes();
@@ -235,7 +179,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             
         }else if (opByte == 7){ // LOGRQ WORKS
             String userName = new String(message, 2, message.length-2);
-            if (holder.usernames.contains(userName)){ // need to change?
+            if (holder.usernames.contains(userName) || (holder.logginId.containsKey(connectionId) && holder.logginId.get(connectionId) == true)){ // need to change?
                 byte[] error = {0,5,0,7,0};
                 connections.send(connectionId,error);
             }else {
@@ -244,8 +188,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 connections.send(connectionId, ack);
             }
         }else if (opByte == 8){ // DELRQ WORKS
-            String fileName = new String(message,2,message.length-3); // maybe length is 3
-            Path path = Paths.get(FILES_DIRECTORY + "/" + fileName); // "./././././././Flies/gal.txt"
+            String fileName = new String(message,2,message.length-3); 
+            Path path = Paths.get(FILES_DIRECTORY + "/" + fileName); 
             if (Files.exists(path)){
                 File file = path.toFile();
                 file.delete();
@@ -261,16 +205,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             holder.usernames.remove(connectionId);
             shouldTerminate = true;
         }
-   //     throw new UnsupportedOperationException("Unimplemented method 'process'");
     }
 
     @Override
     public boolean shouldTerminate() {
         // TODO implement this
         return shouldTerminate;
-       // throw new UnsupportedOperationException("Unimplemented method 'shouldTerminate'");
     } 
-
-
-    
 }

@@ -18,7 +18,6 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         sizeArr++; // size of the array right now
         if(sizeArr > 1) {
             if ((bytes[1] == 6) || (bytes[1] == 10)){ // DIRQ or DISC
-                //pushByte(nextByte);
                 byte[] output = new byte[sizeArr];
                 for(int i = 0; i < sizeArr; i++) {
                     output[i] = bytes[i];

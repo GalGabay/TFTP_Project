@@ -30,63 +30,33 @@ public class TftpClient {
     private static Socket socket;
     //TODO: implement the main logic of the client, when using a thread per client the main logic goes here
     public static <T> void main(String[] args) throws UnknownHostException, IOException {
-        //  if (args.length == 0) {
-        //     args = new String[]{"localhost", "hello"};
-        // }
 
-        // if (args.length < 2) {
-        //     System.out.println("you must supply two arguments: host, message");
-        //     System.exit(1);
-        // }
-
-        //BufferedReader and BufferedWriter automatically using UTF-8 encoding
         final MessageEncoderDecoder<byte[]> encdec = (MessageEncoderDecoder<byte[]>) new TftpEncoderDecoder();    
-        //final BidiMessagingProtocol<byte[]> protocol = new TftpProtocol();
         socket = new Socket(args[0], Integer.parseInt(args[1]));
 
         try (Socket sock = socket;
         BufferedInputStream in = new BufferedInputStream(sock.getInputStream());
         BufferedOutputStream out = new BufferedOutputStream(sock.getOutputStream())) {
-                // final KeyboardHandler<byte[]> keyboardHandler = new KeyboardHandler<>(protocol,sock, encdec);
-                // final BlockingConnectionHandler<byte[]> connectionHandler = new BlockingConnectionHandler<>(sock, encdec, protocol);
-                // Thread KeyboardThread = new Thread(keyboardHandler);
-                // Thread ListeningThread = new Thread(connectionHandler);
-                // KeyboardThread.start();
-                // ListeningThread.start();
-                // System.out.println("Client is connected");
-                // try {
-                //     KeyboardThread.join();
-                //     ListeningThread.join();
-                // } catch (InterruptedException e) {
-                //     // TODO Auto-generated catch block
-                //     e.printStackTrace();
-                // }
                 
             Thread keyboardThread = new Thread(() -> {
                 BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));    
-                System.out.println("sending message to server");
+                System.out.println("connected to server");
                 String userInputStr;
                 try {
-                    while (!shouldTerminate && (userInputStr = userInput.readLine()) != null) {
-                        String output = processKeyboard(userInputStr);       
-                        if(output!=null) {
-                            // for(int i = 0; i < output.length(); i++) {
-                            //     System.out.println(output.charAt(i)+ " ");
-                            // }
-                            // for(int i = 0; i < output.getBytes().length; i++) {
-                            //     System.out.print(output.getBytes()[i] + " ");
-                            // }
-                            
-                            out.write(encdec.encode(output.getBytes()));
-                            //out.newLine();
-                            out.flush();
+                    while(!shouldTerminate()) {
+                        if(userInput.ready()) {
+                            userInputStr = userInput.readLine();
+                            String output = processKeyboard(userInputStr);       
+                            if(output!=null) {
+                                out.write(encdec.encode(output.getBytes()));
+                                out.flush();
+                            }
                         }
                     }
-                    System.out.println("keyboard thread finished");
+                    
                 } catch(IOException e) {
                     e.printStackTrace();
-                }
-                
+                }         
             });
 
               // Start listening thread
@@ -95,18 +65,14 @@ public class TftpClient {
                 try {
                     while (!shouldTerminate && (read = in.read()) >= 0) {
                         byte[] nextMessage = encdec.decodeNextByte((byte) read);
-                    //while ((line = in.readLine()) != null) { // not good
                         if (nextMessage != null) {
                             byte[] output = processListen(nextMessage);
                             if(output != null) {
-                                //String theOutput = new String(output,0,output.length);
                                 out.write(encdec.encode(output));
                                 out.flush();
                             }
                         }
-                        //byte[] message = line.getBytes();
                     }
-                    System.out.println("listen thread finished");
                 } 
                 catch (IOException e) {
                     e.printStackTrace();
@@ -120,12 +86,11 @@ public class TftpClient {
             listenThread.join();
             keyboardThread.join();
         } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
     } }
 }
 
-    public boolean shouldTerminate() {
+    public static boolean shouldTerminate() {
         return shouldTerminate;
     }
     public static void terminate() {
@@ -133,11 +98,9 @@ public class TftpClient {
         try {
             socket.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
-
 
     private static File wrqFile;
     private static short blockNumberToInt = 0;
@@ -146,13 +109,10 @@ public class TftpClient {
     private static boolean isInDIRQ = false;
     private static String lastCommand = "";
 
-    
-
-
     public static String processKeyboard(String userInputStr) {
         String[] userArr = userInputStr.split(" ");
-        // System.out.println("userArr[0] is:" + userArr[0]);
-        if(userArr[0].equals("DISC") | userArr[0].equals("DIRQ")) {
+        
+        if((userArr[0].equals("DISC") | userArr[0].equals("DIRQ")) && userArr.length == 1) {
             byte[] output = new byte[2];
             if(userArr[0].equals("DISC")) {
                 output[0] = 0;
@@ -171,7 +131,13 @@ public class TftpClient {
             } catch (UnsupportedEncodingException e) {}           
             return theOutput;
         } else if(userArr[0].equals("LOGRQ") | userArr[0].equals("DELRQ") | userArr[0].equals("RRQ") | userArr[0].equals("WRQ")){
-            int userInputLength = userArr[1].getBytes().length;          
+            String fileName = "";
+            for(int i = 1; i<userArr.length; i++) {
+                fileName += userArr[i];
+                if(i != userArr.length-1)
+                    fileName += " ";
+            }
+            int userInputLength = fileName.getBytes().length;          
             byte[] output  = new byte[userInputLength+3];
             output[0] = 0;
             if(userArr[0].equals("LOGRQ")) {
@@ -185,7 +151,8 @@ public class TftpClient {
             }
             else if(userArr[0].equals("RRQ")) {
                 Path folder = Paths.get("./");
-                Path filePath = folder.resolve(userArr[1]);
+                
+                Path filePath = folder.resolve(fileName);
                 try {
                     if(!Files.exists(filePath)) {
                         Files.createFile(filePath);
@@ -194,7 +161,7 @@ public class TftpClient {
                         rrqFile = filePath.toFile();
                         lastCommand = "RRQ";
                     } else {
-                        System.out.println("File already exists");
+                       System.out.println("File already exists");
                         return null;
                     }
                     
@@ -203,7 +170,7 @@ public class TftpClient {
                 // create file with the name of the file
             else if(userArr[0].equals("WRQ")) {
                     Path folder = Paths.get("./");
-                    Path filePath = folder.resolve(userArr[1]);
+                    Path filePath = folder.resolve(fileName);
                     if (Files.exists(filePath)) {
                         wrqFile = filePath.toFile();   
                         output[1] = 2;
@@ -213,28 +180,22 @@ public class TftpClient {
                         return null;
                     }
             }
-                System.arraycopy(userArr[1].getBytes(), 0, output, 2, userInputLength);
+
+                System.arraycopy(fileName.getBytes(), 0, output, 2, userInputLength);
                 output[output.length-1] = 0;
-                // for(int i = 0; i < output.length; i++) {
-                //     System.out.print(output[i] + " ");
-                // }
                 String theOutput = "";
                 try {
                     theOutput = new String(output, "UTF-8");
                 } catch (UnsupportedEncodingException e) {}
             return theOutput;
         } else { // output not valid     
-            // System.out.println("userArr[0] is:" + userArr[0]);
             System.out.println("Invalid input");
             return null;
         }
-    
     }
 
     public static byte[] processListen(byte[] message) {
-        // for(int i = 0; i < message.length; i++) {
-        //     System.out.println("message[" + i + "] is: " + message[i]);
-        // }
+
         if(message.length == 4 && message[1] == 4) { // ACK
             if(message[3] == 0 && !lastCommand.equals("WRQ") && !lastCommand.equals("DISC")) {
                 System.out.println("ACK " + message[2]);
@@ -244,27 +205,16 @@ public class TftpClient {
             }
             else { // ACK DATA
                 byte[] blockNumber = {message[2], message[3]};
-                // System.out.print("blockNumber[0] is: " + blockNumber[0] + " blockNumber[1] is: " + blockNumber[1]);
-                //System.out.print("blockNumber[0]: " + blockNumber[0] + " blockNumber[1]: " + blockNumber[1] + " " );
                 short blockNumberCast = (short)(((short)((blockNumber[0] & 0xFF)) << 8) | (short)(blockNumber[1] & 0xFF));
-                // System.out.print("blockNumberCast: " + blockNumberCast + " ");
                 System.out.println("ACK " + blockNumberCast);
 
                 if(wrqFile != null) { // ACK for WRQ
                     int i =  blockNumberToInt*512;
                     blockNumberToInt++;
-                    
-                   // short blockNumberCast = (short)(((short)((blockNumber[0] & 0xFF)) << 8) | (short)(blockNumber[1] & 0xFF));
                     blockNumberCast++;
-                    //System.out.print("increment: " + blockNumberCast);
                     blockNumber[0] = (byte) ((blockNumberCast >> 8) & 0xFF); 
                     blockNumber[1] = (byte) (blockNumberCast & 0xFF); 
-                    //System.out.println("blocknumber: " + blockNumber[0] + " " + blockNumber[1]);
-                    //System.out.println(" casting: " + blockNumber[0] + " " + blockNumber[1]);
-                    // if(blockNumber[1] == 127) { 
-                    //     blockNumber[0]++;
-                    //     blockNumber[1] = 0;
-                    // } 
+
                     byte[] data;
                     try (FileInputStream fileToRead = new FileInputStream(wrqFile)) {
                         data = new byte[(int) wrqFile.length()];
@@ -282,10 +232,8 @@ public class TftpClient {
                             System.out.println("WRQ " + wrqFile.getName() + " complete");
                             wrqFile = null;
                         }
-                        //System.out.println("blockNumber[0] is: " + packetToSend[4] + " blockNumber[1] is: " + packetToSend[5]);
                         return packetToSend;
                     } catch (IOException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                     
@@ -293,9 +241,6 @@ public class TftpClient {
             }
 
         } else if(message.length > 2 && message[1] == 9) { // BCAST
-            // for(int i = 0; i < message.length; i++) {
-            //     System.out.print(message[i] + " ");
-            // }
             byte[] fileName = new byte[message.length-4];
             System.arraycopy(message, 3, fileName, 0, fileName.length);
             String fileNameStr = "";
@@ -306,8 +251,7 @@ public class TftpClient {
             byte[] ackData = {0,4,0,0};
             return ackData;
         } else if(message.length > 2 && message[1] == 5) { // ERROR
-            // // ERROR there is a bug here
-            if(lastCommand.equals("DISC")) {
+            if(message[3] != 6 && lastCommand.equals("DISC")) {
                 terminate();
             }
             System.out.println("Error " + message[2] + message[3]);
