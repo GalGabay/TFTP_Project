@@ -36,7 +36,6 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             out = new BufferedOutputStream(sock.getOutputStream());
             int counter = 0;
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
-                System.out.println("read is: " + read);
                 T nextMessage = encdec.decodeNextByte((byte) read);
                 // System.out.println("entered " + counter);
                 counter++;
@@ -46,7 +45,6 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
                     //     System.out.println("message[" + i + "] is: " + message[i]);
                     // }
                     String fileName = new String(message,0,message.length);
-                    System.out.println("entered protocol and message is: " + fileName);
                     protocol.process(nextMessage);
                     // if (response != null) {
                     //     out.write(encdec.encode(response));
@@ -74,6 +72,9 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
         //     out = new BufferedOutputStream(sock.getOutputStream());
         if(msg!=null){
             try {
+                byte[] message = (byte[])encdec.encode(msg);
+                if(message.length > 3)
+                    System.out.println(message[2] + " " + message[3]); 
                 out.write(encdec.encode(msg));
                 out.flush(); 
             } catch(IOException e) {

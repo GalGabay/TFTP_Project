@@ -14,7 +14,7 @@ import bgu.spl.net.srv.Connections;
 
 class holder {
     static ConcurrentHashMap<Integer,Boolean> logginId= new ConcurrentHashMap<>();
-    static ConcurrentHashMap<Integer,byte[]> usernames= new ConcurrentHashMap<>();
+    static ConcurrentHashMap<Integer,String> usernames= new ConcurrentHashMap<>();
 }
 
 public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
@@ -57,13 +57,16 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
     public void handleData(byte[] data, byte[] blockNumber) {
         if(data!=null) {
 
-            
-            if(blockNumber[1] == 127) { 
-                blockNumber[0]++;
-                blockNumber[1] = 0;
-            } else {
-                blockNumber[1]++;
-            }
+            short blockNumberCast = (short)(((short)((blockNumber[0] & 0xFF)) << 8) | (short)(blockNumber[1] & 0xFF));
+            blockNumberCast++;
+            blockNumber[0] = (byte)((blockNumberCast >> 8) & 0xFF);
+            blockNumber[1] = (byte)(blockNumberCast & 0xFF);
+            System.out.println("blockNumber[0]: " + blockNumber[0] + " blockNumber[1]: " + blockNumber[1]);
+    
+            // if(blockNumber[1] == 127) { 
+            //     blockNumber[0]++;
+            //     blockNumber[1] = 0;
+            // }
             int i = blockNumberToInt*512;
             blockNumberToInt++;
             System.out.println("data length1 is: " + data.length);
@@ -116,7 +119,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             if (Files.exists(path)){
                 File file = path.toFile();
                 connections.send(connectionId,ack);
-                System.out.println("send ack to client after RRQ");
                 // call func to handle data
                 try (FileInputStream fileToRead = new FileInputStream(file)) {
                     // Read file data in chunks
@@ -181,12 +183,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
             }
 
         } else if(opByte == 3) { // DATA WORKS
-            int packetSize = (message[2] << 8) | (message[3] & 0xFF);   
+            short packetSize = (short)((message[2] << 8) | (message[3] & 0xFF)); 
+            byte[] ackData = {0,4,message[4],message[5]};  
             try (FileOutputStream fileToCreate = new FileOutputStream(wrqFile, true)) {
                 fileToCreate.write(Arrays.copyOfRange(message, 6, message.length));
         } catch (IOException e) {
             e.printStackTrace();}
-            byte[] ackData = {0,4,message[4],message[5]};
+            
+           // System.out.println("ack: " + message[4] + " " + message[5]);
             connections.send(connectionId,ackData);
             if(packetSize < 512) {
                 bCastPacket((byte)1, wrqFile.getName().getBytes());
@@ -230,14 +234,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
 
             
         }else if (opByte == 7){ // LOGRQ WORKS
-            if (holder.usernames.contains(connectionId)){ // need to change?
+            String userName = new String(message, 2, message.length-2);
+            if (holder.usernames.contains(userName)){ // need to change?
                 byte[] error = {0,5,0,7,0};
                 connections.send(connectionId,error);
             }else {
                 holder.logginId.put(connectionId,true);
-                holder.usernames.put(connectionId,Arrays.copyOfRange(message, 2, message.length-2));
+                holder.usernames.put(connectionId,userName);
                 connections.send(connectionId, ack);
-                System.out.println("send ack to client after LOGRQ");
             }
         }else if (opByte == 8){ // DELRQ WORKS
             String fileName = new String(message,2,message.length-3); // maybe length is 3

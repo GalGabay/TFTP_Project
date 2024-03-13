@@ -43,8 +43,6 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
                 if(sizeArr >= 4) {
                     int packetSize = (bytes[2] << 8) | (bytes[3] & 0xFF);      
                     if(sizeArr >= packetSize+6) {
-                        System.out.println("packetSize is: " + packetSize);
-                        System.out.println("sizeArr is: " + sizeArr);
                         byte[] output = new byte[sizeArr];
                         for(int i = 0; i < sizeArr; i++) {
                             output[i] = bytes[i];
@@ -55,7 +53,33 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
                         return output;
                     }
                 }
-            } 
+            } else if(bytes[1] == 5) { // ERROR
+                if(sizeArr == 5) {
+                    byte[] output = new byte[sizeArr];
+                    for(int i = 0; i < sizeArr; i++) {
+                        output[i] = bytes[i];
+                    }
+                    len = 0;
+                    sizeArr = 0;
+                    bytes = new byte[1 << 10];
+                    return output;
+                
+                }
+            } else if(bytes[1] == 9) { // BCAST
+                if(sizeArr > 3) {
+                    if(nextByte == 0) {
+                        byte[] output = new byte[sizeArr];
+                        for(int i = 0; i < sizeArr; i++) {
+                            output[i] = bytes[i];
+                        }
+                        len = 0;
+                        sizeArr = 0;
+                        bytes = new byte[1 << 10];
+                        return output; 
+                    }
+                    
+                }
+            }
             else if(nextByte == 0) {
                 byte[] output = new byte[sizeArr];
                 for(int i = 0; i < sizeArr; i++) {
