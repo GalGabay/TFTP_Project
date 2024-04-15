@@ -62,9 +62,9 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
         //IMPLEMENT IF NEEDED
         if(msg!=null){
             try {
-                byte[] message = (byte[])encdec.encode(msg);
-                if(message.length > 3)
-                    System.out.println(message[2] + " " + message[3]); 
+                // byte[] message = (byte[])encdec.encode(msg);
+                // if(message.length > 3)
+                //     System.out.println(message[2] + " " + message[3]); 
                 out.write(encdec.encode(msg));
                 out.flush(); 
             } catch(IOException e) {

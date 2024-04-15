@@ -158,22 +158,26 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]>  {
                 }
             }
             byte[] fileNamesToBytes = fileNames.getBytes();
-            data = new byte[fileNamesToBytes.length + filesCounter-1];
-            int filesLength = 0;
-            for (File file : filesList) {
-                if (file.isFile()) {
-                    filesCounter--;
-                    System.arraycopy(file.getName().getBytes(), 0, data, filesLength, file.getName().getBytes().length);
-                    filesLength += file.getName().getBytes().length + 1;
-                    if(filesCounter != 0) {
-                        data[filesLength-1] = 0;
-                    }       
-                    
+            
+            if(filesCounter != 0) {
+                data = new byte[fileNamesToBytes.length + filesCounter-1];
+                int filesLength = 0;
+                for (File file : filesList) {
+                    if (file.isFile()) {
+                        filesCounter--;
+                        System.arraycopy(file.getName().getBytes(), 0, data, filesLength, file.getName().getBytes().length);
+                        filesLength += file.getName().getBytes().length + 1;
+                        if(filesCounter != 0) {
+                            data[filesLength-1] = 0;
+                        }       
+                        
+                    }
                 }
+                
+                byte[] blockNumber = {0,0};
+                handleData(data, blockNumber);
             }
             
-            byte[] blockNumber = {0,0};
-            handleData(data, blockNumber);
             
 
             
